@@ -1,0 +1,10 @@
+// Merge this into ~/.openclaw/openclaw.json.
+// Prefer an absolute path to your local AgentForge checkout.
+{
+  skills: {
+    load: {
+      extraDirs: ["/absolute/path/to/AgentForge/skills"],
+      watch: true,
+    },
+  },
+}

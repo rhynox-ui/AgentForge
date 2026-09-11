@@ -1,5 +1,8 @@
+// One-time OpenClaw configuration.
 // Merge this into ~/.openclaw/openclaw.json.
 // Prefer an absolute path to your local AgentForge checkout.
+// After this is loaded, interact with AgentForge through OpenClaw; do not
+// start a separate AgentForge process for normal software-engineering tasks.
 {
   skills: {
     load: {

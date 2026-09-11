@@ -1,47 +1,95 @@
 ---
 name: agentforge-openclaw
-description: Connect AgentForge engineering workflows to OpenClaw capabilities and use OpenClaw as the execution layer.
+description: Run AgentForge as an OpenClaw-native autonomous software engineering workflow, using OpenClaw's native tools for real-world execution.
 ---
 
 # AgentForge + OpenClaw
 
-AgentForge owns reasoning, orchestration, verification, and recovery. OpenClaw supplies the real-world tools and runtime capabilities.
+AgentForge is the engineering control plane. OpenClaw is the execution plane.
 
-## Operating rule
+When this skill is loaded, operate as one integrated system:
 
-Prefer OpenClaw for host actions when the capability is available there. Do not duplicate an OpenClaw capability inside AgentForge unless a fallback is required.
+`Understand → Inspect → Plan → Decide → Execute → Observe → Verify → Recover/Complete`
 
-Use the existing AgentForge engineering skills for the workflow:
+The user should interact with OpenClaw only. Do not ask the user to open a terminal, manually copy commands, take screenshots, or shuttle information between AgentForge and OpenClaw when the active OpenClaw tools can perform the work.
 
-- `$agentforge-core` for operating doctrine, safety, verification, and recovery.
-- `$autonomous-software-operator` for end-to-end software work.
+## Responsibilities
 
-## Capability routing
+### AgentForge owns
 
-Route execution through OpenClaw for capabilities such as:
+- task decomposition and engineering workflow
+- explicit decisions and execution state
+- verification criteria
+- failure analysis and bounded recovery
+- preserving project context and decisions
+- refusing to declare success without evidence
 
-- terminal and local environment operations
-- filesystem inspection and supported mutations
+### OpenClaw owns
+
+- terminal/shell execution
+- filesystem and local environment access
 - browser/UI interaction
-- Git/GitHub workflows when exposed by the active OpenClaw tool policy
+- Git and GitHub operations exposed by policy
 - web research and external services
-- Android/build tooling available in the host environment
-- deployment and infrastructure tooling available to the OpenClaw agent
+- Android/build tooling
+- deployment and infrastructure operations
+- approvals and host-level security policy
 
-AgentForge should select the capability; OpenClaw should perform the action.
+Do not recreate these capabilities inside AgentForge when OpenClaw already provides them.
 
-## Gateway boundary
+## Native OpenClaw execution
 
-When AgentForge is operating as an external process, use its OpenClaw Gateway adapter and `POST /tools/invoke` rather than embedding OpenClaw internals.
+For normal operation inside OpenClaw, use OpenClaw's native tools directly. AgentForge is the workflow and decision framework; it is not a second agent that must be launched separately for every action.
 
-Never put `OPENCLAW_GATEWAY_TOKEN` or other credentials in source code, prompts, logs, commits, or skill files. Supply credentials through the runtime environment.
+For each meaningful engineering task:
 
-## Safety
+1. Understand the requested outcome and constraints.
+2. Inspect the real repository, files, environment, or deployment state before changing anything.
+3. Produce a concrete plan and identify the exact capabilities required.
+4. Decide whether each action is safe, reversible, and authorized.
+5. Execute through the appropriate native OpenClaw tool.
+6. Observe the actual tool output, exit status, changed files, deployment state, or UI result.
+7. Verify against the requested outcome and relevant tests/checks.
+8. If verification fails, diagnose and recover with bounded changes; otherwise complete with evidence.
 
-OpenClaw tool policy remains an important security boundary. Treat direct shell execution, arbitrary file mutation, destructive Git operations, production infrastructure changes, credential handling, financial operations, and other irreversible actions as high-impact.
+Never treat an attempted command, API call, commit, or deployment as proof that the requested outcome was achieved.
 
-AgentForge must verify actual results after OpenClaw actions and must not claim success from an attempted invocation alone.
+## External AgentForge runtime
+
+If AgentForge is intentionally running as a separate process, use the existing OpenClaw Gateway adapter (`core/openclaw.py`) and the Gateway tool invocation boundary rather than importing OpenClaw internals.
+
+Keep `OPENCLAW_GATEWAY_TOKEN` and all other credentials in the runtime environment. Never place secrets in source, prompts, logs, commits, or skill files.
+
+## High-impact actions
+
+OpenClaw's tool policy and approval system remains the final security boundary. Treat these as high-impact unless explicitly authorized by the active policy and user intent:
+
+- destructive or irreversible shell operations
+- arbitrary credential access or handling
+- destructive Git history operations
+- production changes
+- financial transactions
+- security-sensitive configuration changes
+
+For high-impact actions, obtain the required OpenClaw approval instead of bypassing the host policy.
+
+## Failure and recovery
+
+When an action fails:
+
+- capture the real error/output
+- determine whether the failure is transient, environmental, permission-related, or caused by the implementation
+- do not blindly repeat destructive actions
+- make the smallest safe correction
+- rerun the relevant check
+- stop and surface the blocker when recovery would require authorization or unsafe escalation
 
 ## Skill composition
 
-OpenClaw can load this skill alongside the core AgentForge skills. Keep the skill set focused; do not load every specialized skill when the task does not need it.
+Load these together for software-engineering work:
+
+- `$agentforge-core` — doctrine, safety, verification, and recovery
+- `$autonomous-software-operator` — end-to-end software engineering workflow
+- `$agentforge-openclaw` — OpenClaw-native execution and integration rules
+
+Specialized skills should be loaded only when the task requires them.

@@ -1,10 +1,41 @@
 # OpenClaw integration
 
-AgentForge uses OpenClaw as its preferred execution layer. OpenClaw provides the tools; AgentForge provides orchestration, planning, verification, and recovery.
+AgentForge uses OpenClaw as its preferred execution layer. OpenClaw provides the real-world tools and host runtime; AgentForge provides the engineering workflow, planning discipline, verification, and recovery rules.
 
-## Local setup
+## Native mode — recommended
 
-OpenClaw's Gateway is normally available on the local host. Configure AgentForge with environment variables:
+The normal user experience is:
+
+```text
+User → OpenClaw → AgentForge skills → OpenClaw native tools → verification → result
+```
+
+Install/load the AgentForge skills once, then interact with OpenClaw normally. There is no need to start a separate AgentForge process for every task.
+
+Configure OpenClaw to load the local AgentForge skills directory with `skills.load.extraDirs`:
+
+```json5
+{
+  skills: {
+    load: {
+      extraDirs: ["/absolute/path/to/AgentForge/skills"],
+      watch: true,
+    },
+  },
+}
+```
+
+Recommended skills:
+
+- `agentforge-core`
+- `autonomous-software-operator`
+- `agentforge-openclaw`
+
+The `agentforge-openclaw` skill tells OpenClaw to use its native terminal, filesystem, browser, Git/GitHub, Android, build, deployment, and other enabled capabilities directly. AgentForge therefore does not need to duplicate host tooling.
+
+## External runtime mode
+
+When AgentForge is intentionally running as a separate Python process, configure:
 
 ```bash
 export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789
@@ -14,7 +45,7 @@ export OPENCLAW_SESSION_KEY=main
 
 Do not commit the token.
 
-## Calling a tool
+Call the Gateway through the existing adapter:
 
 ```python
 from core.openclaw import OpenClawClient
@@ -24,41 +55,73 @@ result = client.invoke("sessions_list", {"limit": 5})
 print(result)
 ```
 
-The adapter sends the request to OpenClaw's Gateway `/tools/invoke` endpoint. OpenClaw still applies its configured tool policy, so AgentForge does not bypass the host runtime's capability controls.
+The adapter uses OpenClaw's Gateway `/tools/invoke` boundary. OpenClaw remains responsible for tool policy, approvals, authentication, and host security controls.
 
-## Skills
+## Operational contract
 
-AgentForge's `skills/` directory follows the OpenClaw `SKILL.md` format. OpenClaw can load these skills from a workspace skills root. The recommended arrangement is to make the AgentForge skills available in the OpenClaw workspace rather than maintaining a second, divergent copy.
+For software-engineering work, the integrated system follows:
 
-For a local checkout, configure OpenClaw's `skills.load.extraDirs` to include the AgentForge `skills/` directory, or copy/install the selected skills into the OpenClaw workspace. Workspace skills have higher precedence than lower-priority skill roots.
+```text
+Understand
+    ↓
+Inspect real state
+    ↓
+Plan
+    ↓
+Decide + authorize
+    ↓
+Execute with OpenClaw
+    ↓
+Observe actual result
+    ↓
+Verify
+    ↓
+Recover safely or complete
+```
 
-Recommended initial skill set:
+Never declare success from an attempted action alone. Verify the actual files, command results, tests, UI state, deployment state, or other evidence relevant to the task.
 
-- `agentforge-core`
-- `autonomous-software-operator`
-- `agentforge-openclaw`
+## Security boundary
 
-Add specialized skills only when a task needs them.
+OpenClaw's tool policy and approval system is the final host-level security boundary. AgentForge must not bypass it.
+
+Treat destructive shell commands, arbitrary credential handling, destructive Git operations, production changes, financial actions, and other irreversible operations as high-impact. Use the OpenClaw approval flow when required.
+
+Never place `OPENCLAW_GATEWAY_TOKEN` or other credentials in source code, prompts, skill files, logs, or commits.
 
 ## Architecture
 
 ```text
-User request
-    |
-    v
-AgentForge / LangGraph
-    |  plan / decide / verify / recover
-    v
-OpenClaw adapter
-    |
-    v
-OpenClaw Gateway
-    |
-    +--> terminal / files
-    +--> browser / web
-    +--> Git / GitHub
-    +--> deployment / infrastructure
-    +--> other enabled tools and skills
+                    ┌─────────────────────┐
+                    │        User         │
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │      OpenClaw       │
+                    │ host + tools + auth │
+                    └──────────┬──────────┘
+                               │ loads
+                               ▼
+                    ┌─────────────────────┐
+                    │  AgentForge Skills  │
+                    │ workflow + doctrine │
+                    └──────────┬──────────┘
+                               │ selects capability
+                               ▼
+                    ┌─────────────────────┐
+                    │ OpenClaw native     │
+                    │ tools / integrations│
+                    └──────────┬──────────┘
+                               │
+                               ▼
+                    ┌─────────────────────┐
+                    │ Observe + Verify    │
+                    └──────────┬──────────┘
+                               │
+                     ┌─────────┴─────────┐
+                     ▼                   ▼
+                  Recover             Complete
 ```
 
-The adapter is intentionally small. If OpenClaw changes its transport later, the integration boundary can change without rewriting AgentForge's orchestration graph.
+The Python Gateway adapter remains available for external AgentForge processes and tests. Native OpenClaw mode is the preferred path for the everyday user experience because it avoids a second competing agent runtime and avoids unnecessary nested Gateway calls.
